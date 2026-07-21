@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "author": "Nukotani",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": -86.4, "left": 52.84, "attrs": {} },
+    {
+      "type": "chip-pca9685",
+      "id": "chip2",
+      "top": -37.42,
+      "left": 199,
+      "rotate": 180,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo1",
+      "top": 92.2,
+      "left": 356.2,
+      "rotate": 90,
+      "attrs": { "hornColor": "black" }
+    },
+    { "type": "wokwi-serial-monitor", "id": "serialMonitor", "top": -133, "left": 52.84, "attrs": {} },
+    { "type": "wokwi-vcc", "id": "vcc1", "top": -124.04, "left": 220.8, "attrs": {} },
+    { "type": "wokwi-gnd", "id": "gnd1", "top": -133, "left": 268.6, "rotate": 180, "attrs": {} },
+    {
+      "type": "wokwi-servo",
+      "id": "servo2",
+      "top": 92.2,
+      "left": 548.2,
+      "rotate": 90,
+      "attrs": { "hornColor": "#8f4814" }
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo3",
+      "top": 332.2,
+      "left": 663.4,
+      "rotate": 90,
+      "attrs": { "hornColor": "red" }
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo4",
+      "top": 332.2,
+      "left": 548.2,
+      "rotate": 90,
+      "attrs": { "hornColor": "orange" }
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo5",
+      "top": 92.2,
+      "left": 653.8,
+      "rotate": 90,
+      "attrs": { "hornColor": "gold" }
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo6",
+      "top": 332.2,
+      "left": 356.2,
+      "rotate": 90,
+      "attrs": { "hornColor": "green" }
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo7",
+      "top": 332.2,
+      "left": 442.6,
+      "rotate": 90,
+      "attrs": { "hornColor": "blue" }
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servo8",
+      "top": 92.2,
+      "left": 442.6,
+      "rotate": 90,
+      "attrs": { "hornColor": "violet" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "servo1:V+", "vcc1:VCC", "red", [ "v-67.2", "h-211.3" ] ],
+    [ "servo1:GND", "gnd1:GND", "black", [ "v-115.2", "h-172.8" ] ],
+    [ "servo1:PWM", "chip2:LED0", "#8f4814", [ "v-19.2", "h-96.2", "v57.6" ] ],
+    [ "chip2:SDA", "esp:21", "cyan", [ "h-38.01", "v-96.04" ] ],
+    [ "chip2:SCL", "esp:22", "blue", [ "h-28.41", "v-115.24" ] ],
+    [ "servo8:PWM", "chip2:LED1", "orange", [ "v0" ] ],
+    [ "servo8:V+", "servo1:V+", "red", [ "v-67.2", "h-86.4" ] ],
+    [ "servo8:GND", "servo1:GND", "black", [ "v-115.2", "h-86.4" ] ],
+    [ "servo2:GND", "servo8:GND", "black", [ "v-115.2", "h-105.6" ] ],
+    [ "servo5:GND", "servo2:GND", "black", [ "v-115.2", "h-105.6" ] ],
+    [ "servo2:V+", "servo8:V+", "red", [ "v-67.2", "h-105.6" ] ],
+    [ "servo5:V+", "servo2:V+", "red", [ "v-67.2", "h-105.6" ] ],
+    [ "servo3:V+", "servo5:V+", "red", [ "v-19.2", "h47.9", "v-249.6", "h-67.1" ] ],
+    [ "servo3:GND", "servo5:GND", "black", [ "v-9.6", "h48", "v-278.4", "h-67.2" ] ],
+    [ "servo4:GND", "servo3:GND", "black", [ "v-57.6", "h115.2" ] ],
+    [ "servo7:GND", "servo4:GND", "black", [ "v-48", "h115.2" ] ],
+    [ "servo6:GND", "servo7:GND", "black", [ "v-38.4", "h86.4" ] ],
+    [ "servo6:V+", "servo7:V+", "red", [ "v-48", "h96" ] ],
+    [ "servo7:V+", "servo4:V+", "red", [ "v-57.6", "h115.2" ] ],
+    [ "servo4:V+", "servo3:V+", "red", [ "v-67.2", "h115.2" ] ],
+    [ "servo2:PWM", "chip2:LED2", "gold", [ "v0" ] ],
+    [ "servo5:PWM", "chip2:LED3", "green", [ "v0" ] ],
+    [ "servo6:PWM", "chip2:LED4", "blue", [ "v-9.6", "h-96.2", "v-288" ] ],
+    [ "servo7:PWM", "chip2:LED5", "violet", [ "v-19.2", "h-173", "v-288" ] ],
+    [ "servo4:PWM", "chip2:LED6", "gray", [ "v-28.8", "h-269", "v-288" ] ],
+    [ "servo3:PWM", "chip2:LED7", "white", [ "h-48.2", "v-326.4" ] ]
+  ],
+  "dependencies": {}
+}
