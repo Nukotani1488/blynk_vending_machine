@@ -7,10 +7,9 @@
 #include <Adafruit_PWMServoDriver.h>
 
 #include "web_server.h"
+#include "system.h"
 #include "config.h"
 #include <BlynkSimpleEsp32.h>
-
-
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40); // default I2C address
 
@@ -172,7 +171,7 @@ BLYNK_WRITE(V0) {
 void setup() {
   Serial.begin(115200);
 
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.begin(WOKWI_SSID, WOKWI_PASS);
 
   while (WiFi.status() != WL_CONNECTED) {
