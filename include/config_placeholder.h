@@ -10,14 +10,5 @@
 #define REST_ANGLE 0
 #define OUT_ANGLE  90
 
-//#define WOKWI_SSID "Wokwi-GUEST"
-#define WOKWI_SSID "IMAM_SITI 2"
-#define WOKWI_PASS "88888888"
-
-//#define BLYNK_TEMPLATE_ID "TMPL6esf4JV1y"
-//#define BLYNK_TEMPLATE_NAME "Vending Machine"
-//#define BLYNK_AUTH_TOKEN "tbQ_cnMIvsIcgpW98yphaj1IvznsNDdO"
-
-#define BLYNK_TEMPLATE_ID "TMPL6esf4JV1y"
-#define BLYNK_TEMPLATE_NAME "Vending Machine"
-#define BLYNK_AUTH_TOKEN "a5BBqxG69BtMpd-Vy3CyT8VzcMFLL7Ta"
+#define DEFAULT_AP_SSID ""
+#define DEFAULT_AP_PASSWORD ""
