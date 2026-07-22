@@ -1,7 +1,10 @@
 [wokwi]
 version = 1
 elf = ".pio/build/esp32dev/firmware.elf"
-firmware = ".pio/build/esp32dev/firmware.bin"
+firmware = ".pio/build/esp32dev/merged-firmware.bin"
+[[net.forward]]
+from = "localhost:8180"
+to = "target:80"
 [[chip]]
 name = "pca9685"
 binary = "chips/pca9685.chip.wasm"

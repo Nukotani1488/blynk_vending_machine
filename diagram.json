@@ -3,7 +3,7 @@
   "author": "Nukotani",
   "editor": "wokwi",
   "parts": [
-    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": -86.4, "left": 52.84, "attrs": {} },
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": -86.4, "left": 52.84, "attrs": {} },
     {
       "type": "chip-pca9685",
       "id": "chip2",
@@ -81,13 +81,13 @@
     }
   ],
   "connections": [
-    [ "esp:TX", "$serialMonitor:RX", "", [] ],
-    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
     [ "servo1:V+", "vcc1:VCC", "red", [ "v-67.2", "h-211.3" ] ],
     [ "servo1:GND", "gnd1:GND", "black", [ "v-115.2", "h-172.8" ] ],
     [ "servo1:PWM", "chip2:LED0", "#8f4814", [ "v-19.2", "h-96.2", "v57.6" ] ],
-    [ "chip2:SDA", "esp:21", "cyan", [ "h-38.01", "v-96.04" ] ],
-    [ "chip2:SCL", "esp:22", "blue", [ "h-28.41", "v-115.24" ] ],
+    [ "chip2:SDA", "esp:D21", "cyan", [ "h-38.01", "v-96.04" ] ],
+    [ "chip2:SCL", "esp:D22", "blue", [ "h-28.41", "v-115.24" ] ],
     [ "servo8:PWM", "chip2:LED1", "orange", [ "v0" ] ],
     [ "servo8:V+", "servo1:V+", "red", [ "v-67.2", "h-86.4" ] ],
     [ "servo8:GND", "servo1:GND", "black", [ "v-115.2", "h-86.4" ] ],
