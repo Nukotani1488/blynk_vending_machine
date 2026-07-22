@@ -5,23 +5,78 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <mbedtls/md.h>
+#include <esp_random.h>
 
 AsyncWebServer server(80);
 
+const size_t MAX_POST_SIZE = 1024;
+
 static String post_buf = "";
-static bool post_buf_lock = false;
+static AsyncWebServerRequest *post_owner = nullptr;
+
+static AsyncWebServerRequest *post_failed_request = nullptr;
+
+static uint32_t post_start_time = 0;
+const uint32_t POST_TIMEOUT = 5000;
+
+void release_post_buffer(AsyncWebServerRequest *request) {
+    if (post_owner == request) {
+        post_buf = "";
+        post_owner = nullptr;
+        post_start_time = 0;
+    }
+
+    if (post_failed_request == request) {
+        post_failed_request = nullptr;
+    }
+}
+
+bool append_post_data(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total
+) {
+    if (index == 0) {
+        if (post_owner != nullptr) {
+            post_failed_request = request;
+            request->send(429, "text/plain", "another request is being processed");
+            return false;
+        }
+
+        if (total > MAX_POST_SIZE) {
+            post_failed_request = request;
+            request->send(413, "text/plain", "request too large");
+            return false;
+        }
+
+        post_owner = request;
+        post_buf = "";
+        post_buf.reserve(total);
+        post_start_time = millis();
+    }
+
+    if (post_owner != request) {
+        return false;
+    }
+
+    if ((uint32_t)(millis() - post_start_time) > POST_TIMEOUT) {
+        release_post_buffer(request);
+        request->send(408, "text/plain", "request timeout");
+        return false;
+    }
+
+    if (post_buf.length() + len > MAX_POST_SIZE) {
+        release_post_buffer(request);
+        request->send(413, "text/plain", "request too large");
+        return false;
+    }
+
+    post_buf.concat((const char *)data, len);
+
+    return true;
+}
 
 static String session_token = "";
 static uint32_t session_token_expiration = 0;
 const uint32_t SESSION_TIMEOUT = 30UL * 60 * 1000;
 
-
-bool constant_time_equal(const String& a, const String& b) {
-    if (a.length() != b.length()) return false;
-    uint8_t result = 0;
-    for (size_t i = 0; i < a.length(); i++) result |= a[i] ^ b[i];
-    return result == 0;
-}
 
 String generate_session_token() {
     uint8_t buf[24];
@@ -37,16 +92,18 @@ String generate_session_token() {
 
 bool is_session_occupied() {
     if (session_token_expiration == 0) return false;
-    if (millis() > session_token_expiration) {
+
+    if ((int32_t)(millis() - session_token_expiration) > 0) {
         session_token = "";
         session_token_expiration = 0;
         return false;
     }
+
     return true;
 }
 
 bool is_session_valid(const String& token) {
-    return is_session_occupied() && token == session_token;
+    return is_session_occupied() && constant_time_equal(token, session_token);
 }
 
 String get_cookie_value(AsyncWebServerRequest *request, const String& cookieName) {
@@ -61,10 +118,7 @@ String get_cookie_value(AsyncWebServerRequest *request, const String& cookieName
 }
 
 bool request_has_valid_session(AsyncWebServerRequest *request) {
-    if (!is_session_occupied()) return false;
-    String cookie_token = get_cookie_value(request, "session");
-    if (cookie_token == "") return false;
-    return constant_time_equal(cookie_token, session_token);
+    return is_session_valid(get_cookie_value(request, "session"));
 }
 
 typedef std::function<void(AsyncWebServerRequest*)> ArRequestHandlerFn;
@@ -86,10 +140,12 @@ ArRequestHandlerFn require_auth_page(ArRequestHandlerFn handler) {
 ArRequestHandlerFn require_auth_api(ArRequestHandlerFn handler) {
     return [handler](AsyncWebServerRequest *request) {
         if (!is_admin_configured()) {
+            release_post_buffer(request);
             request->send(403, "text/plain", "admin belum dikonfigurasi");
             return;
         }
         if (!request_has_valid_session(request)) {
+            release_post_buffer(request);
             request->send(401, "text/plain", "tidak terautentikasi");
             return;
         }
@@ -98,7 +154,7 @@ ArRequestHandlerFn require_auth_api(ArRequestHandlerFn handler) {
 }
 
 
-void startWebServer() {
+void start_web_server() {
     if (!LittleFS.begin(true)) {
         Serial.println("gagal mount LittleFS");
         return;
@@ -114,24 +170,28 @@ void startWebServer() {
 
     server.on("/setup", HTTP_POST,
         [](AsyncWebServerRequest *request) {
+            if (post_failed_request == request) {
+                post_failed_request = nullptr;
+                return;
+            }
             if (is_admin_configured()) {
-                post_buf = "";
-                post_buf_lock = false;
+                release_post_buffer(request);
                 request->send(403, "text/plain", "telah dikonfigurasi");
                 return;
             }
 
             if (is_session_occupied()) {
-                post_buf = "";
-                post_buf_lock = false;
+                release_post_buffer(request);
                 request->send(400, "text/plain", "sesi lain sedang berlangsung");
                 return;
             }
 
+            String body = post_buf;
+            release_post_buffer(request);
+
             JsonDocument doc;
-            DeserializationError err = deserializeJson(doc, post_buf);
-            post_buf = "";
-            post_buf_lock = false;
+            auto err = deserializeJson(doc, body);
+
 
             if (err) {
                 request->send(400, "text/plain", "json tidak valid");
@@ -152,21 +212,16 @@ void startWebServer() {
                 return;
             }
 
-            if (set_admin_credentials(username, password)) {
+            if (!set_admin_credentials(username, password)) {
                 request->send(400, "text/plain", "gagal menyimpan kredensial");
+                return;
             }
 
             request->send(200, "text/plain", "ok");
         },
         NULL,
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-            if (post_buf_lock) {
-                request->send(400, "text/plain", "sesi lain sedang berlangsung");
-                return;
-            }
-            if (index == 0) post_buf = "";
-            post_buf += String((char*)data).substring(0, len);
-            post_buf_lock = true;
+            append_post_data(request, data, len, index, total);
         }
     );
 
@@ -180,24 +235,28 @@ void startWebServer() {
 
     server.on("/login", HTTP_POST,
         [](AsyncWebServerRequest *request) {
+            if (post_failed_request == request) {
+                post_failed_request = nullptr;
+                return;
+            }
             if (!is_admin_configured()) {
-                post_buf = "";
-                post_buf_lock = false;
+                release_post_buffer(request);
                 request->redirect("/setup");
                 return;
             }
 
             if (is_session_occupied()) {
-                post_buf = "";
-                post_buf_lock = false;
+                release_post_buffer(request);
                 request->send(400, "text/plain", "sesi lain sedang berlangsung");
                 return;
             }
 
+            String body = post_buf;
+            release_post_buffer(request);
+
             JsonDocument doc;
-            DeserializationError err = deserializeJson(doc, post_buf);
-            post_buf = "";
-            post_buf_lock = false;
+            auto err = deserializeJson(doc, body);
+
             if (err) {
                 request->send(400, "text/plain", "json tidak valid");
                 return;
@@ -209,15 +268,10 @@ void startWebServer() {
             String storedUsername;
             String storedHash;
 
-            if (get_admin_username(storedUsername) || get_admin_password_hash(storedHash)) {
+            if (!get_admin_username(storedUsername) || !get_admin_password_hash(storedHash)) {
                 request->send(400, "text/plain", "autentikasi gagal, mohon coba lagi");
                 return;
             }
-
-            prefs.begin("admin", true);
-            String storedUsername = prefs.getString("username", "");
-            String storedHash = prefs.getString("passHash", "");
-            prefs.end();
 
             bool usernameMatch = constant_time_equal(username, storedUsername);
             bool passwordMatch = constant_time_equal(hash_password(password),storedHash);
@@ -237,13 +291,7 @@ void startWebServer() {
         },
         NULL,
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-            if (post_buf_lock) {
-                request->send(400, "text/plain", "sesi lain sedang berlangsung");
-                return;
-            }
-            if (index == 0) post_buf = "";
-            post_buf += String((char*)data).substring(0, len);
-            post_buf_lock = true;
+            append_post_data(request, data, len, index, total);
         }
     );
 
@@ -260,10 +308,16 @@ void startWebServer() {
 
     server.on("/wifi", HTTP_POST,
         require_auth_api([](AsyncWebServerRequest *request) {
+            if (post_failed_request == request) {
+                post_failed_request = nullptr;
+                return;
+            }
+            String body = post_buf;
+            release_post_buffer(request);
+
             JsonDocument doc;
-            DeserializationError err = deserializeJson(doc, post_buf);
-            post_buf = "";
-            post_buf_lock = false;
+            auto err = deserializeJson(doc, body);
+
             if (err) {
                 request->send(400, "text/plain", "json tidak valid");
                 return;
@@ -277,12 +331,12 @@ void startWebServer() {
                 return;
             }
 
-            if (password.length() < 8 || password.length() > 64) {
+            if (password.length() != 0 && (password.length() < 8 || password.length() > 63)) {
                 request->send(400, "text/plain", "password tidak valid");
                 return;
             }
 
-            if (set_wifi_credentials(ssid, password)) {
+            if (!set_wifi_credentials(ssid, password)) {
                 request->send(400, "text/plain", "gagal menyimpan password. mohon coba lagi");
                 return;
             }
@@ -291,13 +345,7 @@ void startWebServer() {
         }),
         NULL,
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-            if (post_buf_lock) {
-                request->send(400, "text/plain", "sesi lain sedang berlangsung");
-                return;
-            }
-            if (index == 0) post_buf = "";
-            post_buf += String((char*)data).substring(0, len);
-            post_buf_lock = true;
+            append_post_data(request, data, len, index, total);
         }
     );
 
@@ -311,18 +359,26 @@ void startWebServer() {
 
     server.on("/blynk", HTTP_POST,
         require_auth_api([](AsyncWebServerRequest *request) {
+            Serial.println("Received blynk request");
+            if (post_failed_request == request) {
+                post_failed_request = nullptr;
+                return;
+            }
+
+            String body = post_buf;
+            release_post_buffer(request);
+
             JsonDocument doc;
-            DeserializationError err = deserializeJson(doc, post_buf);
-            post_buf = "";
-            post_buf_lock = false;
+            auto err = deserializeJson(doc, body);
+
             if (err) {
                 request->send(400, "text/plain", "json tidak valid");
                 return;
             }
 
-            String auth_token = doc["auth_token"] | "";
+            String token = doc["token"] | "";
 
-            if(set_blynk_credentials(auth_token)) {
+            if (!set_blynk_credentials(token)) {
                 request->send(400, "text/plain", "gagal menyimpan token");
                 return;
             }
@@ -331,13 +387,7 @@ void startWebServer() {
         }),
         NULL,
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-            if (post_buf_lock) {
-                request->send(400, "text/plain", "sesi lain sedang berlangsung");
-                return;
-            }
-            if (index == 0) post_buf = "";
-            post_buf += String((char*)data).substring(0, len);
-            post_buf_lock = true;
+            append_post_data(request, data, len, index, total);
         }
     );
 
@@ -351,10 +401,17 @@ void startWebServer() {
 
     server.on("/ap", HTTP_POST,
         require_auth_api([](AsyncWebServerRequest *request) {
+            if (post_failed_request == request) {
+                post_failed_request = nullptr;
+                return;
+            }
+
+            String body = post_buf;
+            release_post_buffer(request);
+
             JsonDocument doc;
-            DeserializationError err = deserializeJson(doc, post_buf);
-            post_buf = "";
-            post_buf_lock = false;
+            auto err = deserializeJson(doc, body);
+
             if (err) {
                 request->send(400, "text/plain", "json tidak valid");
                 return;
@@ -363,7 +420,7 @@ void startWebServer() {
             String ssid = doc["ssid"] | "";
             String password = doc["password"] | "";
 
-            if (set_ap_credentials(ssid, password)) {
+            if (!set_ap_credentials(ssid, password)) {
                 request->send(400, "text/plain", "gagal menyimpan kredensial ap. mohon coba lagi");
                 return;
             }
@@ -372,13 +429,7 @@ void startWebServer() {
         }),
         NULL,
         [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-            if (post_buf_lock) {
-                request->send(400, "text/plain", "sesi lain sedang berlangsung");
-                return;
-            }
-            if (index == 0) post_buf = "";
-            post_buf += String((char*)data).substring(0, len);
-            post_buf_lock = true;
+            append_post_data(request, data, len, index, total);
         }
     );
 

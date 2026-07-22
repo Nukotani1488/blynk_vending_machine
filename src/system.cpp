@@ -1,7 +1,30 @@
 #include "system.h"
 #include "helpers.h"
+#include "config.h"
+
+#include <BlynkSimpleEsp32.h>
+#include <Arduino.h>
+#include <WiFi.h>
 
 Preferences prefs;
+
+static BlynkCallback callback = nullptr;
+
+bool init_prefs() {
+    prefs.begin("admin", false);
+    prefs.end();
+
+    prefs.begin("wifi", false);
+    prefs.end();
+
+    prefs.begin("ap", false);
+    prefs.end();
+
+    prefs.begin("blynk", false);
+    prefs.end();
+
+    return true;
+}
 
 bool is_admin_configured() {
     prefs.begin("admin", true);
@@ -43,9 +66,9 @@ bool set_wifi_credentials(const String& ssid, const String& password) {
     }
 
     flag &= prefs.begin("wifi", false);
-    flag &= prefs.putString("ssid", ssid);
-    flag &= prefs.putString("pass", password);
-    flag &= prefs.putBool("isSetup", true);
+    prefs.putString("ssid", ssid);
+    prefs.putString("pass", password);
+    prefs.putBool("isSetup", true);
     prefs.end();
 
     return flag;
@@ -55,8 +78,8 @@ bool set_blynk_credentials(const String& auth_token) {
     bool flag = true;
 
     flag &= prefs.begin("blynk", false);
-    flag &= prefs.putString("token", auth_token);
-    flag &= prefs.putBool("isSetup", true);
+    prefs.putString("token", auth_token);
+    prefs.putBool("isSetup", true);
     prefs.end();
 
     return flag;
@@ -73,9 +96,9 @@ bool set_ap_credentials(const String& ssid, const String& password) {
     }
 
     flag &= prefs.begin("ap", false);
-    flag &= prefs.putString("ssid", ssid);
-    flag &= prefs.putString("pass", password);
-    flag &= prefs.putBool("isSetup", true);
+    prefs.putString("ssid", ssid);
+    prefs.putString("pass", password);
+    prefs.putBool("isSetup", true);
     prefs.end();
 
     return flag;
@@ -89,9 +112,9 @@ bool set_admin_credentials(const String& username, const String& password) {
     }
 
     flag &= prefs.begin("admin", false);
-    flag &= prefs.putString("uname", username);
-    flag &= prefs.putString("hash", hash_password(password));
-    flag &= prefs.putBool("isSetup", true);
+    prefs.putString("uname", username);
+    prefs.putString("hash", hash_password(password));
+    prefs.putBool("isSetup", true);
     prefs.end();
 
     return flag;
@@ -162,3 +185,75 @@ bool get_admin_password_hash(String& hash) {
     return flag;
 }
 
+bool network_begin() {
+    WiFi.mode(WIFI_AP_STA);
+
+    #ifdef WOKWI_TEST
+    prefs.begin("wifi", false);
+    prefs.putString("ssid", "Wokwi-GUEST");
+    prefs.putString("pass", "");
+    prefs.putBool("isSetup", true);
+    prefs.end();
+    #endif
+
+    wifi_connect();
+    blynk_connect();
+    return ap_begin();
+}
+
+void set_blynk_callback(BlynkCallback cb) {
+    callback = cb;
+}
+
+BLYNK_WRITE(V0) {
+    if (callback) callback(param.asInt());
+}
+
+bool blynk_run() {
+    return Blynk.run();
+}
+
+bool wifi_connect() {
+    String wifi_ssid, wifi_password;
+
+    if (is_wifi_configured()) {
+        if (get_wifi_credentials(wifi_ssid, wifi_password)) {
+            WiFi.begin(wifi_ssid.c_str(), wifi_password.c_str());
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool is_wifi_connected() {
+    return (WiFi.status() == WL_CONNECTED);
+}
+
+bool ap_begin() {
+    String ap_ssid, ap_password;
+    
+    if (is_ap_configured()) {
+        if (get_ap_credentials(ap_ssid, ap_password)) {
+            return WiFi.softAP(ap_ssid.c_str(), ap_password.c_str());
+        }
+    }
+
+    return WiFi.softAP(DEFAULT_AP_SSID, DEFAULT_AP_PASSWORD);
+}
+
+bool blynk_connect() {
+    String stored_token;
+    if (!get_blynk_credentials(stored_token)) {
+        return false;
+    }
+    Blynk.config(stored_token.c_str());
+    return true;
+}
+
+bool is_blynk_connected() {
+    if (is_blynk_configured()) {
+        return Blynk.connected();
+    }
+    return false;
+}

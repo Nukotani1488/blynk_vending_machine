@@ -1,6 +1,5 @@
 #include "helpers.h"
 
-#include <Arduino.h>
 #include <mbedtls/md.h>
 
 bool constant_time_equal(const String& a, const String& b) {
@@ -8,10 +7,6 @@ bool constant_time_equal(const String& a, const String& b) {
     uint8_t result = 0;
     for (size_t i = 0; i < a.length(); i++) result |= a[i] ^ b[i];
     return result == 0;
-}
-
-bool verify_admin_password(const String& password, const String& hash) {
-    return constant_time_equal(hash_password(password), hash);
 }
 
 String hash_password(const String& password) {
@@ -31,4 +26,8 @@ String hash_password(const String& password) {
         hex_hash += buf;
     }
     return hex_hash;
+}
+
+bool verify_admin_password(const String& password, const String& hash) {
+    return constant_time_equal(hash_password(password), hash);
 }

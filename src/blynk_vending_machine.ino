@@ -9,7 +9,6 @@
 #include "web_server.h"
 #include "system.h"
 #include "config.h"
-#include <BlynkSimpleEsp32.h>
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40); // default I2C address
 
@@ -133,8 +132,7 @@ void update_state_machine() {
   }
 }
 
-BLYNK_WRITE(V0) {
-  int32_t _value = param.asInt();
+void handle_value_input(int32_t _value) {
   if (_value < 0) {
     Serial.println("Invalid value for V0, must be non-negative");
     return;
@@ -169,18 +167,18 @@ BLYNK_WRITE(V0) {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(BAUD_RATE);
+  Serial.println("Starting up!");
 
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.begin(WOKWI_SSID, WOKWI_PASS);
+  init_prefs();
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print("*");
-  }
+  set_blynk_callback(handle_value_input);
 
-  Serial.println("");
-  Serial.println("WiFi connected");
+  network_begin();
+
+  start_web_server();
+
+  Serial.println("web server started");
 
   initialize_slots();
 
@@ -191,14 +189,11 @@ void setup() {
     moveServo(i, REST_ANGLE);
   }
 
-  Blynk.config(BLYNK_AUTH_TOKEN);
-  Blynk.connect();
-
   Serial.println("Vending machine ready");
 }
 
 void loop() {
-  Blynk.run();
+  blynk_run();
   process_orders();
   update_state_machine();
 }

@@ -12,3 +12,5 @@
 
 #define DEFAULT_AP_SSID ""
 #define DEFAULT_AP_PASSWORD ""
+
+#define BAUD_RATE 115200

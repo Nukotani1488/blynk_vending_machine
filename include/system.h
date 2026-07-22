@@ -4,6 +4,8 @@
 
 extern Preferences prefs;
 
+bool init_prefs();
+
 bool is_admin_configured();
 bool is_wifi_configured();
 bool is_blynk_configured();
@@ -19,3 +21,17 @@ bool get_blynk_credentials(String& auth_token);
 bool get_ap_credentials(String& ssid, String& password);
 bool get_admin_username(String& username);
 bool get_admin_password_hash(String& hash);
+
+bool network_begin();
+
+typedef void (*BlynkCallback)(int32_t value);
+void set_blynk_callback(BlynkCallback callback);
+
+bool blynk_run();
+
+bool wifi_connect();
+bool is_wifi_connected();
+bool ap_begin();
+bool blynk_connect();
+bool is_blynk_connected();
+
