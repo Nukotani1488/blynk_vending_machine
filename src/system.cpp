@@ -10,6 +10,40 @@ Preferences prefs;
 
 static BlynkCallback callback = nullptr;
 
+#define ADMIN_SHIFT 0
+#define WIFI_SHIFT  2
+#define BLYNK_SHIFT 4
+#define AP_SHIFT    6
+
+#define CACHED_BIT  0b01
+#define VALUE_BIT   0b10
+
+static uint8_t config_cache = 0;
+
+bool check_configured(const char* ns, uint8_t shift) {
+    uint8_t bits = (config_cache >> shift) & 0b11;
+
+    if (bits & CACHED_BIT) {
+        return bits & VALUE_BIT;
+    }
+
+    prefs.begin(ns, true);
+    bool configured = prefs.getBool("isSetup", false);
+    prefs.end();
+
+    uint8_t new_bits = CACHED_BIT | (configured ? VALUE_BIT : 0);
+    config_cache &= ~(0b11 << shift);
+    config_cache |= (new_bits << shift);
+
+    return configured;
+}
+
+void set_config_cache(uint8_t shift, bool configured) {
+    uint8_t new_bits = CACHED_BIT | (configured ? VALUE_BIT : 0);
+    config_cache &= ~(0b11 << shift);
+    config_cache |= (new_bits << shift);
+}
+
 bool init_prefs() {
     const char *namespaces[] = {"prefs", "admin", "wifi", "ap", "blynk", "price"};
     if(prefs.begin(namespaces[0], true)) {
@@ -35,33 +69,10 @@ bool init_prefs() {
     return true;
 }
 
-bool is_admin_configured() {
-    prefs.begin("admin", true);
-    bool configured = prefs.getBool("isSetup", false);
-    prefs.end();
-    return configured;
-}
-
-bool is_wifi_configured() {
-    prefs.begin("wifi", true);
-    bool configured = prefs.getBool("isSetup", false);
-    prefs.end();
-    return configured;
-}
-
-bool is_blynk_configured() {
-    prefs.begin("blynk", true);
-    bool configured = prefs.getBool("isSetup", false);
-    prefs.end();
-    return configured;
-}
-
-bool is_ap_configured() {
-    prefs.begin("ap", true);
-    bool configured = prefs.getBool("isSetup", false);
-    prefs.end();
-    return configured;
-}
+bool is_admin_configured() { return check_configured("admin", ADMIN_SHIFT); }
+bool is_wifi_configured()  { return check_configured("wifi",  WIFI_SHIFT); }
+bool is_blynk_configured() { return check_configured("blynk", BLYNK_SHIFT); }
+bool is_ap_configured()    { return check_configured("ap",    AP_SHIFT); }
 
 bool set_wifi_credentials(const String& ssid, const String& password) {
     bool flag = true;
@@ -80,6 +91,8 @@ bool set_wifi_credentials(const String& ssid, const String& password) {
     prefs.putBool("isSetup", true);
     prefs.end();
 
+    if (flag) set_config_cache(WIFI_SHIFT, true);
+
     return flag;
 }
 
@@ -90,6 +103,8 @@ bool set_blynk_credentials(const String& auth_token) {
     prefs.putString("token", auth_token);
     prefs.putBool("isSetup", true);
     prefs.end();
+
+    if (flag) set_config_cache(BLYNK_SHIFT, true);
 
     return flag;
 }
@@ -110,6 +125,8 @@ bool set_ap_credentials(const String& ssid, const String& password) {
     prefs.putBool("isSetup", true);
     prefs.end();
 
+    if (flag) set_config_cache(AP_SHIFT, true);
+
     return flag;
 }
 
@@ -125,6 +142,8 @@ bool set_admin_credentials(const String& username, const String& password) {
     prefs.putString("hash", hash_password(password));
     prefs.putBool("isSetup", true);
     prefs.end();
+
+    if (flag) set_config_cache(ADMIN_SHIFT, true);
 
     return flag;
 }
@@ -251,6 +270,12 @@ BLYNK_WRITE(V0) {
 }
 
 bool blynk_run() {
+    if (!is_blynk_configured()) {
+        return false;
+    }
+    if (!is_blynk_connected()) {
+        blynk_connect();
+    }
     return Blynk.run();
 }
 
