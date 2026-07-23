@@ -11,13 +11,11 @@ Preferences prefs;
 static BlynkCallback callback = nullptr;
 
 bool init_prefs() {
-    const char *namespaces[] = {
-        "admin",
-        "wifi",
-        "ap",
-        "blynk",
-        "price"
-    };
+    const char *namespaces[] = {"prefs", "admin", "wifi", "ap", "blynk", "price"};
+    if(prefs.begin(namespaces[0], true)) {
+        prefs.end();
+        return true;
+    }
 
     for (auto ns : namespaces) {
         if (!prefs.begin(ns, false)) {
@@ -25,6 +23,14 @@ bool init_prefs() {
         }
         prefs.end();
     }
+
+    prefs.begin(namespaces[5]);
+    char buf[4];
+    for (uint8_t i; i < SLOT_COUNT; i++) {
+        itoa(i, buf, 10);
+        prefs.putLong(buf, 0);        
+    }
+    prefs.end();
 
     return true;
 }
@@ -228,7 +234,7 @@ bool fetch_price(uint8_t slot, uint32_t &price) {
     int32_t price_buf = prefs.getLong(slot_string, -1);
     prefs.end();
 
-    if (price_buf < 0) {
+    if (price_buf == -1) {
         return false;
     }
 

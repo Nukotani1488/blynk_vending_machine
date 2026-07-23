@@ -5,3 +5,4 @@
 .vscode/ipch
 include/config.h
 chips/*.wasm
+data/price.html

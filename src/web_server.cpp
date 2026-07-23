@@ -1,7 +1,8 @@
-// web_server.cpp
 #include "web_server.h"
 #include "helpers.h"
 #include "system.h"
+#include "price.h"
+#include "config.h"
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <mbedtls/md.h>
@@ -350,10 +351,6 @@ void start_web_server() {
     );
 
     server.on("/blynk", HTTP_GET, require_auth_page([](AsyncWebServerRequest *request) {
-        if (!is_admin_configured()) {
-            request->redirect("/setup");
-            return;
-        }
         request->send(LittleFS, "/blynk.html", "text/html");
     }));
 
@@ -392,10 +389,6 @@ void start_web_server() {
     );
 
     server.on("/ap", HTTP_GET, require_auth_page([](AsyncWebServerRequest *request) {
-        if (!is_admin_configured()) {
-            request->redirect("/setup");
-            return;
-        }
         request->send(LittleFS, "/ap.html", "text/html");
     }));
 
@@ -432,6 +425,77 @@ void start_web_server() {
             append_post_data(request, data, len, index, total);
         }
     );
+
+    server.on("/harga", HTTP_GET, require_auth_page([](AsyncWebServerRequest *request) {
+        request->send(LittleFS, "/price.html", "text/html",false, [](const String& var) -> String {
+
+            if (!var.startsWith("PRICE_")) {
+                    return String();
+                }
+
+                uint8_t slot = atoi(var.substring(6).c_str());
+
+                if (slot >= SLOT_COUNT) {
+                    return String("0");
+                }
+
+                uint32_t price;
+
+                if (!get_price(slot, price)) {
+                    return String("0");
+                }
+
+                return String(price);
+            });
+        })
+    );
+
+    server.on("/harga", HTTP_POST, require_auth_api([](AsyncWebServerRequest *request) {
+        if (post_failed_request == request) {
+            post_failed_request = nullptr;
+            return;
+        }
+
+        String body = post_buf;
+        release_post_buffer(request);
+
+        JsonDocument doc;
+
+        auto err = deserializeJson(doc, body);
+
+        if (err) {
+            request->send(400, "text/plain", "json tidak valid");
+            return;
+        }
+
+        JsonArray prices = doc["prices"].as<JsonArray>();
+
+        if (prices.size() != SLOT_COUNT) {
+            request->send(400, "text/plain", "jumlah harga tidak sesuai");
+            return;
+        }
+
+        for (uint8_t i = 0; i < SLOT_COUNT; i++) {
+
+        if (!prices[i].is<uint32_t>()) {
+            request->send(400, "text/plain", "harga tidak valid");
+                return;
+            }
+
+            uint32_t price = prices[i].as<uint32_t>();
+
+            if (!set_price(i, price)) {
+                request->send(500, "text/plain", "gagal menyimpan harga");
+                return;
+            }
+        }
+
+        request->send(200, "text/plain", "ok");
+    }),
+    NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+        append_post_data(request, data, len, index, total);
+    });
 
     server.on("/", HTTP_GET, require_auth_page([](AsyncWebServerRequest *request) {
         if (!is_admin_configured()) {
