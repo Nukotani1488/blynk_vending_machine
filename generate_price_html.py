@@ -27,24 +27,7 @@ html = f"""<!DOCTYPE html>
 <head>
     <title>Pengaturan Harga</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {{ font-family: sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; }}
-        input {{ display: block; width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; }}
-        button {{ width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; }}
-        #error {{ color: #c0392b; margin-top: 8px; }}
-        #success {{ color: green; margin-top: 8px; }}
-        #back {{
-            position:absolute;
-            top:16px;left:16px;
-            padding:8px 14px;
-            background:#6c757d;
-            color:#fff;
-            text-decoration:none;
-            border-radius:4px;
-            font-size:14px;
-            display:inline-block;
-        }}
-    </style>
+    <link href="/style.css" rel="stylesheet" type="text/css"/>
 </head>
 
 <body>
