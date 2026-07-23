@@ -18,7 +18,7 @@ fields = []
 for i in range(slot_count):
     fields.append(f"""    <div class="slot">
         <label for="slot{i}">Slot {i + 1}</label>
-        <input id="slot{i}" name="slot{i}" type="number" min="0" step="1" value="{{{{PRICE_{i}}}}}">
+        <input id="slot{i}" name="slot{i}" type="number" min="0" step="1" value="%PRICE_{i}%">
     </div>
 """)
 
