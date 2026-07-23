@@ -44,6 +44,11 @@ void set_config_cache(uint8_t shift, bool configured) {
     config_cache |= (new_bits << shift);
 }
 
+struct {
+    String token = "";
+    bool loaded = false;
+} blynk_cache;
+
 bool init_prefs() {
     const char *namespaces[] = {"prefs", "admin", "wifi", "ap", "blynk", "price"};
     if(prefs.begin(namespaces[0], true)) {
@@ -104,7 +109,11 @@ bool set_blynk_credentials(const String& auth_token) {
     prefs.putBool("isSetup", true);
     prefs.end();
 
-    if (flag) set_config_cache(BLYNK_SHIFT, true);
+    if (flag) {
+        blynk_cache.loaded = true;
+        blynk_cache.token = auth_token;
+        set_config_cache(BLYNK_SHIFT, true);
+    }
 
     return flag;
 }
@@ -165,6 +174,12 @@ bool get_wifi_credentials(String& ssid, String& password) {
 
 bool get_blynk_credentials(String& auth_token) {
     bool flag = true;
+
+    if (blynk_cache.loaded) {
+        auth_token = blynk_cache.token;
+        return true;
+    }
+
     prefs.begin("blynk", true);
     if (!prefs.getBool("isSetup", false)) {
         prefs.end();
@@ -173,6 +188,9 @@ bool get_blynk_credentials(String& auth_token) {
 
     auth_token = prefs.getString("token", "");
     prefs.end();
+
+    blynk_cache.loaded = true;
+    blynk_cache.token = auth_token;
     return flag;
 }
 
@@ -314,6 +332,7 @@ bool blynk_connect() {
         return false;
     }
     Blynk.config(stored_token.c_str());
+    Blynk.connect();
     return true;
 }
 
