@@ -19,9 +19,10 @@ static AsyncWebServerRequest *post_failed_request = nullptr;
 
 static uint32_t post_start_time = 0;
 const uint32_t POST_TIMEOUT = 5000;
+static bool post_timed_out = false;
 
 void release_post_buffer(AsyncWebServerRequest *request) {
-    if (post_owner == request) {
+    if (post_owner == request || post_timed_out) {
         post_buf = "";
         post_owner = nullptr;
         post_start_time = 0;
@@ -53,19 +54,24 @@ bool append_post_data(AsyncWebServerRequest *request, uint8_t *data, size_t len,
         post_start_time = millis();
     }
 
-    if (post_owner != request) {
+    if ((uint32_t)(millis() - post_start_time) > POST_TIMEOUT) {
+        post_timed_out = true;
+        release_post_buffer(request);
+        post_timed_out = false;
+        request->send(408, "text/plain", "request timeout");
+        post_failed_request = request;
         return false;
     }
-
-    if ((uint32_t)(millis() - post_start_time) > POST_TIMEOUT) {
-        release_post_buffer(request);
-        request->send(408, "text/plain", "request timeout");
+    
+    if (post_owner != request) {
+        post_failed_request = request;
         return false;
     }
 
     if (post_buf.length() + len > MAX_POST_SIZE) {
         release_post_buffer(request);
         request->send(413, "text/plain", "request too large");
+        post_failed_request = request;
         return false;
     }
 
@@ -163,7 +169,7 @@ void start_web_server() {
 
     server.on("/setup", HTTP_GET, [](AsyncWebServerRequest *request) {
         if (is_admin_configured()) {
-            request->send(403, "text/plain", "telah dikonfigurasi");
+            request->redirect("/");
             return;
         }
         request->send(LittleFS, "/setup.html", "text/html");
@@ -498,11 +504,6 @@ void start_web_server() {
     });
 
     server.on("/", HTTP_GET, require_auth_page([](AsyncWebServerRequest *request) {
-        if (!is_admin_configured()) {
-            request->redirect("/setup");
-            return;
-        }
-
         if (!is_wifi_configured()) {
             request->redirect("/wifi");
             return;
