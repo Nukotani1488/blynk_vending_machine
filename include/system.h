@@ -22,6 +22,9 @@ bool get_ap_credentials(String& ssid, String& password);
 bool get_admin_username(String& username);
 bool get_admin_password_hash(String& hash);
 
+bool store_price(uint8_t slot, uint32_t price);
+bool fetch_price(uint8_t slot, uint32_t &Price);
+
 bool network_begin();
 
 typedef void (*BlynkCallback)(int32_t value);

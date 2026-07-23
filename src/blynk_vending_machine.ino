@@ -8,31 +8,13 @@
 
 #include "web_server.h"
 #include "system.h"
+#include "price.h"
 #include "config.h"
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40); // default I2C address
 
 uint16_t angleToTicks(uint8_t angle) {
   return map(angle, 0, 180, SERVO_MIN, SERVO_MAX);
-}
-
-int16_t extract_slot_from_value(uint32_t value) {
-  uint8_t slot = EXTRACT_LOW_BITS(value, SLOT_COUNT);
-  if (slot >= SLOT_COUNT) {
-    Serial.print("Invalid slot number extracted from value: ");
-    Serial.println(slot);
-    return -1;
-  }
-  return slot;
-}
-
-uint32_t extract_price_from_value(uint32_t value, uint8_t slot) {
-  return value - slot;
-}
-
-bool validate_price(uint32_t price, uint8_t slot) {
-  //TODO: implement price validation logic
-  return true;
 }
 
 // ---------- Dispense state machine ----------
@@ -132,29 +114,22 @@ void update_state_machine() {
   }
 }
 
-void handle_value_input(int32_t _value) {
-  if (_value < 0) {
+void handle_value_input(int32_t value) {
+  if (value < 0) {
     Serial.println("Invalid value for V0, must be non-negative");
     return;
   }
-  uint32_t value = (uint32_t)_value;
+  uint32_t paid = (uint32_t)value;
+  uint32_t price; 
+  uint8_t slot;
 
-  int16_t slot = extract_slot_from_value(value);
-  if (slot < 0) {
-    Serial.print("Invalid slot number: ");
-    Serial.println(slot);
+  if (!parse_paid(paid, slot, price)) {
+    Serial.println("Invalid amount paid");
     return;
   }
+
   Serial.print("Received dispense request for slot ");
   Serial.println(slot);
-
-  uint32_t price = extract_price_from_value(value, slot);
-
-  if (!validate_price(price, slot)) {
-    Serial.print("Price validation failed for slot ");
-    Serial.println(slot);
-    return;
-  }
 
   if (slots[slot].available_stock <= slots[slot].pending_orders) {
       Serial.print("No available stock for slot ");

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <title>Pengaturan Blynk</title>
+    <title>Pengaturan WiFi</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; }
@@ -24,32 +24,33 @@
 </head>
 <body>
     <a href="/" id="back">Kembali</a>
-    <h2>Pengaturan Blynk</h2>
-    <form id="blynkForm">
-        <input type="text" id="token" placeholder="token autentikasi" required>
+    <h2>Pengaturan WiFi</h2>
+    <form id="wifiForm">
+        <input type="text" id="ssid" placeholder="SSID" required>
+        <input autocomplete type="password" id="password" placeholder="password" required>
         <button type="submit">Simpan</button>
     </form>
     <div id="error"></div>
     <div id="success"></div>
 
     <script>
-        document.getElementById('blynkForm').addEventListener('submit', async (e) => {
+        document.getElementById('wifiForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const token = document.getElementById('token').value;
+            const ssid = document.getElementById('ssid').value;
+            const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error');
-            const successDiv = document.getElementById('success');
 
-            const res = await fetch('/blynk', {
+            const res = await fetch('/wifi', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token }),
+                body: JSON.stringify({ ssid, password }),
                 credentials: 'same-origin'
             });
 
             if (res.ok) {
-                successDiv.textContent = 'Berhasil menyimpan token';
+                successDiv.textContent = 'Berhasil menyimpan kredensial WiFi';
             } else {
-                errorDiv.textContent = 'Gagal menyimpan token: ' + await res.text();
+                errorDiv.textContent = 'Gagal menyimpan kredensial WiFi: ' + await res.text();
             }
         });
     </script>

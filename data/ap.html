@@ -8,9 +8,24 @@
         input { display: block; width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; }
         button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; }
         #error { color: #c0392b; margin-top: 8px; }
+        #success { color: green; margin-top: 8px; }
+        #back {
+            position:absolute;
+            top:16px;left:16px;
+            padding:8px 14px;
+            background:#6c757d;
+            color:#fff;
+            text-decoration:none;
+            border-radius:4px;
+            font-size:14px;
+            display:inline-block;
+        }
     </style>
 </head>
 <body>
+    <a href="/" id="back">
+    Kembali
+    </a>
     <h2>Pengaturan Access Point</h2>
     <form id="apForm">
         <input type="text" id="ssid" placeholder="SSID" required>
@@ -25,6 +40,7 @@
             const ssid = document.getElementById('ssid').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error');
+            const successDiv = document.getElementById('success');
 
             const res = await fetch('/ap', {
                 method: 'POST',
@@ -34,7 +50,7 @@
             });
 
             if (res.ok) {
-                window.location.href = '/';
+                successDiv.textContent = 'Berhasil menyimpan kredensial AP';
             } else {
                 errorDiv.textContent = 'Gagal menyimpan kredensial AP: ' + await res.text();
             }

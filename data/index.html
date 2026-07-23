@@ -4,13 +4,80 @@
     <title>Vending Machine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; }
-        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; }
+        body {
+            font-family: sans-serif;
+            max-width: 400px;
+            margin: 60px auto;
+            padding: 0 20px;
+            text-align: center;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 20px auto 0;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .tile {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        .tile:hover {
+            background: #0056b3;
+        }
     </style>
 </head>
 <body>
     <h1>Vending Machine</h1>
     <p>Selamat datang di Vending Machine!</p>
-    <button type="button" onclick="window.location.href='/logout'">Logout</button>
+
+    <div class="grid">
+        <a class="tile" href="/wifi">WiFi</a>
+        <a class="tile" href="/ap">Access Point</a>
+        <a class="tile" href="/blynk">Blynk</a>
+        <a class="tile" href="/price">Harga</a>
+    </div>
+    <button type="submit" id="logout">Logout</button>
+    <div id="error"></div>
+    <script>
+        document.getElementById('logout').addEventListener('click', async (e) => {
+        e.preventDefault();
+        const errorDiv = document.getElementById('error');
+
+        const res = await fetch('/logout', {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+
+        if (res.ok) {
+            window.location.href = '/login';
+        } else {
+            errorDiv.textContent = 'Logout gagal: ' + await res.text();
+        }
+    });
+    </script>
 </body>
 </html>

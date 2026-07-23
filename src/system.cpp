@@ -11,17 +11,20 @@ Preferences prefs;
 static BlynkCallback callback = nullptr;
 
 bool init_prefs() {
-    prefs.begin("admin", false);
-    prefs.end();
+    const char *namespaces[] = {
+        "admin",
+        "wifi",
+        "ap",
+        "blynk",
+        "price"
+    };
 
-    prefs.begin("wifi", false);
-    prefs.end();
-
-    prefs.begin("ap", false);
-    prefs.end();
-
-    prefs.begin("blynk", false);
-    prefs.end();
+    for (auto ns : namespaces) {
+        if (!prefs.begin(ns, false)) {
+            return false;
+        }
+        prefs.end();
+    }
 
     return true;
 }
@@ -199,6 +202,38 @@ bool network_begin() {
     wifi_connect();
     blynk_connect();
     return ap_begin();
+}
+
+bool store_price(uint8_t slot, uint32_t price) {
+    if(!prefs.begin("price", false)) {
+        return false;
+    }
+    char slot_string[4];
+    itoa(slot, slot_string, 10);
+
+    size_t written = prefs.putLong(slot_string, (int32_t)price);
+    prefs.end();
+
+    return written == sizeof(int32_t);
+}
+
+bool fetch_price(uint8_t slot, uint32_t &price) {
+    if(!prefs.begin("price", true)) {
+        return false;
+    }
+
+    char slot_string[4];
+    itoa(slot, slot_string, 10);
+
+    int32_t price_buf = prefs.getLong(slot_string, -1);
+    prefs.end();
+
+    if (price_buf < 0) {
+        return false;
+    }
+
+    price = (uint32_t)price_buf;
+    return true;
 }
 
 void set_blynk_callback(BlynkCallback cb) {
