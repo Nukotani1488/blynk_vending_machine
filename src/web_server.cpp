@@ -522,6 +522,14 @@ void start_web_server() {
         request->send(LittleFS, "/index.html", "text/html");
     }));
 
+    server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+        AsyncWebServerResponse *response =
+            request->beginResponse(LittleFS, "/styles.css", "text/css");
+
+        response->addHeader("Cache-Control", "public, max-age=86400");
+        request->send(response);
+    });
+
     server.onNotFound([](AsyncWebServerRequest *request) {
         request->send(404, "text/plain", "not found");
     });
