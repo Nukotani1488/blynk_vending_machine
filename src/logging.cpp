@@ -1,6 +1,7 @@
 #include "logging.h"
 #include "system.h"
 #include "helpers.h"
+#include "prefs.h"
 #include "config.h"
 
 #include <LittleFS.h>
@@ -29,12 +30,28 @@
 #define ERROR_ENABLED       1 << 2
 #define CRITICAL_ENABLED    1 << 3
 
-struct {
-    LazyValue<uint32_t> flash_counter{fetch_log_counter, store_log_counter, 0};
-    uint32_t counter = 0;
-    LazyValue<uint8_t> level{fetch_log_level, store_log_level, 0};
-} logger_state;
+//struct {
+//    LazyValue<uint32_t> flash_counter{fetch_log_counter, store_log_counter, 0};
+//    uint32_t counter = 0;
+//    LazyValue<uint8_t> level{fetch_log_level, store_log_level, 0};
+//} logger_state;
 //SemaphoreHandle_t logger_state_mutex;
+
+struct LoggerState : PrefsBackedStruct
+{
+    PrefsBackedMember<int> flash_counter;
+    PrefsBackedMember<uint8_t> level;
+    uint32_t counter = 0;
+
+    LoggerState(Preferences& prefs)
+        : PrefsBackedStruct(prefs, "logger"),
+            flash_counter(*this, "counter"),
+            level(*this, "level")
+    {}
+};
+
+Preferences prefs;
+LoggerState logger_state(prefs);
 
 struct {
     LogEntry entries[LOG_BUFFER_MAX_SIZE] = {};
@@ -50,12 +67,7 @@ struct {
 } read_buffer = {};
 
 bool create_log_entry(uint8_t level, uint8_t type, uint8_t event, int32_t* content, LogEntry& buf) {
-    uint8_t current_level;
-    if (!logger_state.level.get(current_level)) {
-        return false;
-    }
-
-    if ((current_level & (1 << level)) == 0) {
+    if ((logger_state.level & (1 << level)) == 0) {
         return false;
     }
 
@@ -109,7 +121,7 @@ bool flush_write_buffer() {
         return false;
     }
 
-    logger_state.flash_counter.set(write_buffer.entries[0].id + write_buffer.size);
+    logger_state.flash_counter = write_buffer.entries[0].id + write_buffer.size;
 
     //reset banyak entri pada write_buffer ke 0
     write_buffer.size = 0;
@@ -282,12 +294,6 @@ bool read_logs(LogEntry* buff, uint32_t count, uint32_t index) {
         return false;
     }
 
-    uint32_t flash_counter_value;
-    if (!logger_state.flash_counter.get(flash_counter_value)) {
-        xSemaphoreGive(write_buffer_mutex);
-        return false;
-    }
-
     uint32_t end = index + count - 1;
     uint32_t current_id = index;
     uint32_t filled = 0;
@@ -297,8 +303,8 @@ bool read_logs(LogEntry* buff, uint32_t count, uint32_t index) {
         uint32_t remaining = end - current_id + 1;
 
         // segment belongs to write_buffer (unflushed, newest data)
-        if (current_id >= flash_counter_value) {
-            uint32_t offset_in_wb = current_id - flash_counter_value;
+        if (current_id >= logger_state.flash_counter) {
+            uint32_t offset_in_wb = current_id - logger_state.flash_counter;
 
             if (offset_in_wb >= write_buffer.size) {
                 ok = false;
@@ -338,7 +344,7 @@ bool read_logs(LogEntry* buff, uint32_t count, uint32_t index) {
         }
 
         // segment must come from flash
-        uint32_t flash_end = (end < flash_counter_value) ? end : flash_counter_value - 1;
+        uint32_t flash_end = (end < logger_state.flash_counter) ? end : logger_state.flash_counter - 1;
 
         if (read_buffer.size > 0 &&
             read_buffer.entries[read_buffer.head].id > current_id &&
@@ -407,10 +413,7 @@ void flusher_task(void* pvParameters) {
 }
 
 bool start_log_subsystem() {
-    uint32_t flash_counter_value;
-    if (logger_state.flash_counter.get(flash_counter_value)) {
-        logger_state.counter = flash_counter_value;
-    }
+    logger_state.counter = logger_state.flash_counter;
 
     write_buffer_mutex = xSemaphoreCreateMutex();
     //logger_state_mutex = xSemaphoreCreateMutex();
