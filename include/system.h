@@ -24,6 +24,10 @@ bool get_admin_password_hash(String& hash);
 
 bool store_price(uint8_t slot, uint32_t price);
 bool fetch_price(uint8_t slot, uint32_t &Price);
+bool store_log_level(uint8_t level);
+bool fetch_log_level(uint8_t& level);
+bool store_log_counter(uint32_t counter);
+bool fetch_log_counter(uint32_t& counter);
 
 bool network_begin();
 
@@ -37,4 +41,3 @@ bool is_wifi_connected();
 bool ap_begin();
 bool blynk_connect();
 bool is_blynk_connected();
-

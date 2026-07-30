@@ -50,7 +50,7 @@ struct {
 } blynk_cache;
 
 bool init_prefs() {
-    const char *namespaces[] = {"prefs", "admin", "wifi", "ap", "blynk", "price"};
+    const char *namespaces[] = {"prefs", "admin", "wifi", "ap", "blynk", "price", "log"};
     if(prefs.begin(namespaces[0], true)) {
         prefs.end();
         return true;
@@ -276,6 +276,48 @@ bool fetch_price(uint8_t slot, uint32_t &price) {
     }
 
     price = (uint32_t)price_buf;
+    return true;
+}
+
+bool store_log_level(uint8_t level) {
+    if (!prefs.begin("log", false)) {
+        return false;
+    }
+    prefs.putInt("level", (int8_t)level);
+    prefs.end();
+}
+
+bool fetch_log_level(uint8_t& level) {
+    if (!prefs.begin("log", true)) {
+        return false;
+    }
+    int8_t stored_level = prefs.getInt("level", -1);
+
+    if (stored_level < 0) {
+        return false;
+    }
+    level = stored_level;
+    return true;
+}
+
+bool store_log_counter(uint32_t counter) {
+    if (!prefs.begin("log", false)) {
+        return false;
+    }
+    prefs.putLong("counter", (int32_t)counter);
+    prefs.end();
+}
+
+bool fetch_log_counter(uint32_t& counter) {
+    if (!prefs.begin("log", true)) {
+        return false;
+    }
+    int8_t stored_counter = prefs.getLong("counter", -1);
+
+    if (stored_counter < 0) {
+        return false;
+    }
+    counter = stored_counter;
     return true;
 }
 
