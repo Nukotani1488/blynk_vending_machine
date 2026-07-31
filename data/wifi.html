@@ -22,6 +22,7 @@
             const ssid = document.getElementById('ssid').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error');
+            const successDiv = document.getElementById('success');
 
             const res = await fetch('/wifi', {
                 method: 'POST',

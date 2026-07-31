@@ -3,55 +3,80 @@
 <head>
     <title>Pengaturan Harga</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body { font-family: sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; }
-        input { display: block; width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; }
-        #error { color: #c0392b; margin-top: 8px; }
-        #success { color: green; margin-top: 8px; }
-        #back {
-            position:absolute;
-            top:16px;left:16px;
-            padding:8px 14px;
-            background:#6c757d;
-            color:#fff;
-            text-decoration:none;
-            border-radius:4px;
-            font-size:14px;
-            display:inline-block;
-        }
-    </style>
+    <link href="/styles.css" rel="stylesheet" type="text/css">
 </head>
+
 <body>
     <a href="/" id="back">Kembali</a>
-    <h2>Pengaturan Harga</h2>
-    <form id="blynkForm">
-        <input type="text" id="token" placeholder="token autentikasi" required>
-        <button type="submit">Simpan</button>
+    <h1>Pengaturan Harga</h1>
+
+    <form id="priceForm">
+
+    <div class="slot">
+        <label for="slot0">Slot 1</label>
+        <input id="slot0" name="slot0" type="number" min="0" step="1" value="%PRICE_0%">
+    </div>
+    <div class="slot">
+        <label for="slot1">Slot 2</label>
+        <input id="slot1" name="slot1" type="number" min="0" step="1" value="%PRICE_1%">
+    </div>
+    <div class="slot">
+        <label for="slot2">Slot 3</label>
+        <input id="slot2" name="slot2" type="number" min="0" step="1" value="%PRICE_2%">
+    </div>
+    <div class="slot">
+        <label for="slot3">Slot 4</label>
+        <input id="slot3" name="slot3" type="number" min="0" step="1" value="%PRICE_3%">
+    </div>
+    <div class="slot">
+        <label for="slot4">Slot 5</label>
+        <input id="slot4" name="slot4" type="number" min="0" step="1" value="%PRICE_4%">
+    </div>
+    <div class="slot">
+        <label for="slot5">Slot 6</label>
+        <input id="slot5" name="slot5" type="number" min="0" step="1" value="%PRICE_5%">
+    </div>
+    <div class="slot">
+        <label for="slot6">Slot 7</label>
+        <input id="slot6" name="slot6" type="number" min="0" step="1" value="%PRICE_6%">
+    </div>
+    <div class="slot">
+        <label for="slot7">Slot 8</label>
+        <input id="slot7" name="slot7" type="number" min="0" step="1" value="%PRICE_7%">
+    </div>
+
+
+    <button type="submit">Simpan</button>
     </form>
     <div id="error"></div>
     <div id="success"></div>
-
     <script>
-        document.getElementById('blynkForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const token = document.getElementById('token').value;
-            const errorDiv = document.getElementById('error');
-            const successDiv = document.getElementById('success');
+    document.getElementById('priceForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prices = [];
 
-            const res = await fetch('/blynk', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token }),
-                credentials: 'same-origin'
-            });
+        for (let i = 0; i < 8; i++) {
+            const value = document.getElementById(`slot${i}`).value;
 
-            if (res.ok) {
-                successDiv.textContent = 'Berhasil menyimpan token';
-            } else {
-                errorDiv.textContent = 'Gagal menyimpan token: ' + await res.text();
-            }
+            prices.push(Number(value));
+        }
+        
+        const errorDiv = document.getElementById('error');
+        const successDiv = document.getElementById('success');
+
+        const res = await fetch('/harga', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prices: prices }),
+            credentials: 'same-origin'
         });
+
+        if (res.ok) {
+            successDiv.textContent = 'Berhasil menyimpan harga';
+        } else {
+            errorDiv.textContent = 'Gagal menyimpan harga: ' + await res.text();
+        }
+    });
     </script>
-</body>
+    </body>
 </html>
