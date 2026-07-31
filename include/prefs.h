@@ -9,6 +9,8 @@ class PrefsBackedStructBase;
 class PrefsBackedStructMemberBase
 {
     friend class PrefsBackedStructBase;
+    template<size_t capacity>
+    friend class PrefsBackedStruct;
 
 protected:
     PrefsBackedStructBase* parent;
@@ -28,6 +30,7 @@ class PrefsBackedStructMember : public PrefsBackedStructMemberBase
     T value;
 
 protected:
+    PrefsBackedStructBase* parent;
     void* data() override;
     size_t size() const override;
 
@@ -42,6 +45,8 @@ class PrefsBackedStructBase : public StorageBackedObject
 {
     friend class PrefsBackedStructMemberBase;
 protected:
+    virtual void flush() override = 0;
+    virtual boolean is_dirty() const override = 0;
     virtual void mark_dirty() = 0;
     virtual void add_member(PrefsBackedStructMemberBase&, const char*) = 0;
 
@@ -75,14 +80,14 @@ public:
     PrefsBackedStruct(Preferences& prefs, const char* ns);
 };
 
-
+/*
 template<typename T, size_t capacity>
 class PrefsBackedArray;
 
 template<typename T>
 class PrefsBackedArrayProxy
 {
-    PrefsBackedArray<T>& parent;
+    PrefsBackedArray<T, capacity>& parent;
     size_t index;
 
 public:
@@ -210,3 +215,5 @@ protected:
         loaded = true;
     }
 };
+*/
+#include "prefs.tpp"

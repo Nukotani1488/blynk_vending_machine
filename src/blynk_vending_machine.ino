@@ -9,6 +9,8 @@
 #include "web_server.h"
 #include "system.h"
 #include "price.h"
+#include "logging.h"
+#include "storage.h"
 #include "config.h"
 
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40); // default I2C address
@@ -145,7 +147,11 @@ void setup() {
   Serial.begin(BAUD_RATE);
   Serial.println("Starting up!");
 
+
   init_prefs();
+
+  start_storage_subsystem();
+  start_log_subsystem();
 
   set_blynk_callback(handle_value_input);
 

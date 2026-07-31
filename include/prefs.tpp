@@ -115,13 +115,14 @@ PrefsBackedStruct<capacity>::PrefsBackedStruct(Preferences& prefs, const char* n
     prefs.end();
 }
 
+/*
 template<typename T, size_t capacity>
 class PrefsBackedArray;
 
 template<typename T>
 class PrefsBackedArrayProxy
 {
-    PrefsBackedArray<T>& parent;
+    PrefsBackedArray<T, capacity>& parent;
     size_t index;
 
 public:
@@ -249,3 +250,4 @@ protected:
         loaded = true;
     }
 };
+*/

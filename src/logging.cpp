@@ -30,17 +30,10 @@
 #define ERROR_ENABLED       1 << 2
 #define CRITICAL_ENABLED    1 << 3
 
-//struct {
-//    LazyValue<uint32_t> flash_counter{fetch_log_counter, store_log_counter, 0};
-//    uint32_t counter = 0;
-//    LazyValue<uint8_t> level{fetch_log_level, store_log_level, 0};
-//} logger_state;
-//SemaphoreHandle_t logger_state_mutex;
-
-struct LoggerState : PrefsBackedStruct
+struct LoggerState : PrefsBackedStruct<2>
 {
-    PrefsBackedMember<int> flash_counter;
-    PrefsBackedMember<uint8_t> level;
+    PrefsBackedStructMember<int> flash_counter;
+    PrefsBackedStructMember<uint8_t> level;
     uint32_t counter = 0;
 
     LoggerState(Preferences& prefs)
@@ -50,7 +43,6 @@ struct LoggerState : PrefsBackedStruct
     {}
 };
 
-Preferences prefs;
 LoggerState logger_state(prefs);
 
 struct {

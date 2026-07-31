@@ -23,7 +23,7 @@ StorageBackedObject::StorageBackedObject() {
     get_storage_manager().add_object(*this);
 }
 
-void flusher_task(void* pvParameters) {
+void storage_flusher_task(void* pvParameters) {
     const TickType_t flush_interval = pdMS_TO_TICKS(STORAGE_FLUSH_INTERVAL_MS);
     TickType_t last_wake = xTaskGetTickCount();
 
@@ -35,7 +35,7 @@ void flusher_task(void* pvParameters) {
 
 bool start_storage_subsystem() {
     BaseType_t task_created = xTaskCreatePinnedToCore(
-        flusher_task,
+        storage_flusher_task,
         "Storage Flusher",
         4096,
         NULL,
