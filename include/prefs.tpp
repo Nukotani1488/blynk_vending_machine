@@ -1,7 +1,3 @@
-#include "prefs.h"
-#include "storage.h"
-#include "config.h"
-
 void PrefsBackedStructMemberBase::register_member(const char* key) {
     parent->add_member(*this, key);
 }
@@ -25,6 +21,27 @@ template<typename T>
 PrefsBackedStructMember<T>::PrefsBackedStructMember(PrefsBackedStructBase& parent,const char* key)
     : parent(&parent) {
     register_member(key);
+}
+
+template<typename T>
+void PrefsBackedStructMember<T>::load(const char* key) {
+    get_prefs().getBytes(key, (void*)&value, sizeof(T));
+}
+
+template<typename T>
+bool PrefsBackedStructMember<T>::flush(const char* key) {
+    return get_prefs().putBytes(key, (void *)&value, sizeof(T)) == sizeof(T);
+}
+
+template<>
+void PrefsBackedStructMember<String>::load(const char* key) {
+    value = get_prefs().getString(key, String());
+}
+
+template<>
+bool PrefsBackedStructMember<String>::flush(const char* key) {
+    size_t written = get_prefs().putString(key, value);
+    return value.isEmpty() ? written == 0 : written > 0;
 }
 
 template<typename T>
@@ -67,15 +84,16 @@ void PrefsBackedStruct<capacity>::load() {
         return;
     }
 
-    prefs.begin(ns, true);
+    get_prefs().begin(ns, true);
     for (size_t i = 0; i < size; i++) {
-        prefs.getBytes(
+        /*prefs.getBytes(
             member_keys[i],
             members[i]->data(),
             members[i]->size()
-        );
+        );*/
+        members[i]->load(member_keys[i]);
     }
-    prefs.end();
+    get_prefs().end();
 
     loaded = true;
 }
@@ -92,11 +110,14 @@ void PrefsBackedStruct<capacity>::flush() {
     }
 
     for (size_t i = 0; i < size; i++) {
-        if (prefs.putBytes(
+        /*if (prefs.putBytes(
             member_keys[i],
             members[i]->data(),
             members[i]->size()
         ) != members[i]->size()) {
+            success = false;
+        }*/
+        if (!members[i]->flush(member_keys[i])) {
             success = false;
         }
     }
@@ -108,11 +129,11 @@ void PrefsBackedStruct<capacity>::flush() {
 }
 
 template<size_t capacity>
-PrefsBackedStruct<capacity>::PrefsBackedStruct(Preferences& prefs, const char* ns)
-    : prefs(prefs), ns(ns)
+PrefsBackedStruct<capacity>::PrefsBackedStruct(const char* ns)
+    : ns(ns)
 {
-    prefs.begin(ns, false);
-    prefs.end();
+    get_prefs().begin(ns, false);
+    get_prefs().end();
 }
 
 /*

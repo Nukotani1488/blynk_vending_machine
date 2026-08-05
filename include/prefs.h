@@ -4,6 +4,11 @@
 #include <Arduino.h>
 #include "storage.h"
 
+Preferences& get_prefs() {
+    static Preferences prefs;
+    return prefs;
+}
+
 class PrefsBackedStructBase;
 
 class PrefsBackedStructMemberBase
@@ -16,6 +21,9 @@ protected:
     PrefsBackedStructBase* parent;
     virtual void* data() = 0;
     virtual size_t size() const = 0;
+
+    virtual void load(const char*) = 0;
+    virtual bool flush(const char*) = 0;
 
     void register_member(const char*);
     void mark_parent_dirty();
@@ -33,6 +41,8 @@ protected:
     PrefsBackedStructBase* parent;
     void* data() override;
     size_t size() const override;
+    void load(const char* key) override;
+    bool flush(const char* key) override;
 
 public:
     PrefsBackedStructMember(PrefsBackedStructBase&, const char*);
@@ -58,7 +68,6 @@ template<size_t capacity>
 class PrefsBackedStruct : public PrefsBackedStructBase
 {
 protected:
-    Preferences& prefs;
     const char* ns;
 
     size_t size = 0;
@@ -77,7 +86,7 @@ protected:
     void load();
 
 public:
-    PrefsBackedStruct(Preferences& prefs, const char* ns);
+    PrefsBackedStruct(const char* ns);
 };
 
 /*
