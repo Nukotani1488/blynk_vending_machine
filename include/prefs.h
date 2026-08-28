@@ -3,76 +3,71 @@
 #include <Preferences.h>
 #include <Arduino.h>
 #include "storage.h"
+#include "helpers.h"
+#include <nvs_flash.h>
+#include "esp32/rom/ets_sys.h"
 
-Preferences& get_prefs() {
-    static Preferences prefs;
-    return prefs;
-}
-
-class PrefsBackedStructBase;
+class PrefsBackedStruct;
 
 class PrefsBackedStructMemberBase
 {
-    friend class PrefsBackedStructBase;
-    template<size_t capacity>
     friend class PrefsBackedStruct;
+    
+    bool changed = false;
 
 protected:
-    PrefsBackedStructBase* parent;
+    PrefsBackedStruct& parent;
     virtual void* data() = 0;
     virtual size_t size() const = 0;
 
-    virtual void load(const char*) = 0;
-    virtual bool flush(const char*) = 0;
+    virtual void load() = 0;
+    virtual bool flush() = 0;
 
-    void register_member(const char*);
+    void register_member();
     void mark_parent_dirty();
+
+    void mark_changed();
+
+    PrefsBackedStructMemberBase(PrefsBackedStruct& parent) : parent(parent) {}
 
 public:
     virtual ~PrefsBackedStructMemberBase() = default;
+    void mark_unchanged();
+    bool is_changed();
 };
 
 template<typename T>
 class PrefsBackedStructMember : public PrefsBackedStructMemberBase
 {
-    T value;
-
 protected:
-    PrefsBackedStructBase* parent;
+    T value;
+    const char* key;
+    //PrefsBackedStruct* parent;
     void* data() override;
     size_t size() const override;
-    void load(const char* key) override;
-    bool flush(const char* key) override;
+    void load() override;
+    bool flush() override;
 
 public:
-    PrefsBackedStructMember(PrefsBackedStructBase&, const char*);
+    PrefsBackedStructMember(PrefsBackedStruct&, const char*);
+    
     operator T() const;
-
     PrefsBackedStructMember& operator=(const T& v);
+    bool operator==(const T& other) const;
+    bool operator!=(const T& other) const;
 };
 
-class PrefsBackedStructBase : public StorageBackedObject
+class PrefsBackedStruct : public StorageBackedObject
 {
+    template<typename T>
+    friend class PrefsBackedStructMember;
     friend class PrefsBackedStructMemberBase;
-protected:
-    virtual void flush() override = 0;
-    virtual boolean is_dirty() const override = 0;
-    virtual void mark_dirty() = 0;
-    virtual void add_member(PrefsBackedStructMemberBase&, const char*) = 0;
 
-public:
-    virtual ~PrefsBackedStructBase() = default;
-};
-
-template<size_t capacity>
-class PrefsBackedStruct : public PrefsBackedStructBase
-{
 protected:
     const char* ns;
+    Preferences prefs_handler;
 
-    size_t size = 0;
-    const char* member_keys[capacity]{};
-    PrefsBackedStructMemberBase* members[capacity] {};
+    IncrementalVector<PrefsBackedStructMemberBase*> members;
 
     bool dirty = false;
     bool loaded = false;
@@ -80,13 +75,15 @@ protected:
     bool is_dirty() const override;
     void flush() override;
     
-    void mark_dirty() override;
-    void add_member(PrefsBackedStructMemberBase& member, const char* key) override;
+    void mark_dirty();
+    void add_member(PrefsBackedStructMemberBase& member);
+    Preferences& prefs();
 
     void load();
 
 public:
     PrefsBackedStruct(const char* ns);
+    ~PrefsBackedStruct();
 };
 
 /*

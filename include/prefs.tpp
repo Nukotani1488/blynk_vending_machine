@@ -1,115 +1,140 @@
-void PrefsBackedStructMemberBase::register_member(const char* key) {
-    parent->add_member(*this, key);
+inline void ensure_nvs_initialized() {
+    static bool initialized = false;
+    if (initialized) return;
+
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(err);
+
+    initialized = true;
 }
 
-void PrefsBackedStructMemberBase::mark_parent_dirty()
+inline void PrefsBackedStructMemberBase::register_member() {
+    parent.add_member(*this);
+}
+
+inline void PrefsBackedStructMemberBase::mark_parent_dirty()
 {
-    parent->mark_dirty();
+    parent.mark_dirty();
+}
+
+inline void PrefsBackedStructMemberBase::mark_unchanged() {
+    changed = false;
+}
+
+inline void PrefsBackedStructMemberBase::mark_changed() {
+    changed = true;
+}
+
+inline bool PrefsBackedStructMemberBase::is_changed() {
+    return changed;
 }
 
 template<typename T>
-void* PrefsBackedStructMember<T>::data() {
+inline void* PrefsBackedStructMember<T>::data() {
     return &value;
 }
 
 template<typename T>
-size_t PrefsBackedStructMember<T>::size() const {
+inline size_t PrefsBackedStructMember<T>::size() const {
     return sizeof(T);
 }
 
 template<typename T>
-PrefsBackedStructMember<T>::PrefsBackedStructMember(PrefsBackedStructBase& parent,const char* key)
-    : parent(&parent) {
-    register_member(key);
+inline PrefsBackedStructMember<T>::PrefsBackedStructMember(PrefsBackedStruct& parent, const char* key)
+    : PrefsBackedStructMemberBase(parent), key(key) {
+    ets_printf("PrefsBackedStructMember ctor: %s\n", key);
+    register_member();
 }
 
 template<typename T>
-void PrefsBackedStructMember<T>::load(const char* key) {
-    get_prefs().getBytes(key, (void*)&value, sizeof(T));
+inline void PrefsBackedStructMember<T>::load() {
+    parent.prefs().getBytes(key, (void*)&value, sizeof(T));
 }
 
 template<typename T>
-bool PrefsBackedStructMember<T>::flush(const char* key) {
-    return get_prefs().putBytes(key, (void *)&value, sizeof(T)) == sizeof(T);
+inline bool PrefsBackedStructMember<T>::flush() {
+    return parent.prefs().putBytes(key, (void *)&value, sizeof(T)) == sizeof(T);
 }
 
 template<>
-void PrefsBackedStructMember<String>::load(const char* key) {
-    value = get_prefs().getString(key, String());
+inline void PrefsBackedStructMember<String>::load() {
+    value = parent.prefs().getString(key, String());
 }
 
 template<>
-bool PrefsBackedStructMember<String>::flush(const char* key) {
-    size_t written = get_prefs().putString(key, value);
+inline bool PrefsBackedStructMember<String>::flush() {
+    size_t written = parent.prefs().putString(key, value);
     return value.isEmpty() ? written == 0 : written > 0;
 }
 
 template<typename T>
-PrefsBackedStructMember<T>::operator T() const {
+inline PrefsBackedStructMember<T>::operator T() const {
     return value;
 }
 
 template<typename T>
-PrefsBackedStructMember<T>& PrefsBackedStructMember<T>::operator=(const T& v) {
+inline bool PrefsBackedStructMember<T>::operator!=(const T& other) const {
+    return value != other;
+}
+
+template<typename T>
+inline bool PrefsBackedStructMember<T>::operator==(const T& other) const {
+    return value == other;
+}
+
+template<typename T>
+inline PrefsBackedStructMember<T>& PrefsBackedStructMember<T>::operator=(const T& v) {
+    if (v == value) return *this;
     value = v;
+    mark_changed();
     mark_parent_dirty();
     return *this;
 }
 
-template<size_t capacity>
-bool PrefsBackedStruct<capacity>::is_dirty() const {
+inline bool PrefsBackedStruct::is_dirty() const {
     return dirty;
 }
 
-template<size_t capacity>
-void PrefsBackedStruct<capacity>::mark_dirty() {
+inline void PrefsBackedStruct::mark_dirty() {
     dirty = true;
 }
 
-template<size_t capacity>
-void PrefsBackedStruct<capacity>::add_member(PrefsBackedStructMemberBase& member, const char* key) {
-    if (size >= capacity) {
-        // handle error
-        return;
-    }
-    
-    member_keys[size] = key;
-    members[size] = &member;
-    size++;
+inline Preferences& PrefsBackedStruct::prefs() {
+    return prefs_handler;
 }
 
-template<size_t capacity>
-void PrefsBackedStruct<capacity>::load() {
+inline void PrefsBackedStruct::add_member(PrefsBackedStructMemberBase& member) {
+    members.push_back(&member);
+}
+
+inline void PrefsBackedStruct::load() {
     if (loaded) {
         return;
     }
 
-    get_prefs().begin(ns, true);
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < members.size(); i++) {
         /*prefs.getBytes(
             member_keys[i],
             members[i]->data(),
             members[i]->size()
         );*/
-        members[i]->load(member_keys[i]);
+        members[i]->load();
     }
-    get_prefs().end();
 
     loaded = true;
 }
 
-template<size_t capacity>
-void PrefsBackedStruct<capacity>::flush() {
+inline void PrefsBackedStruct::flush() {
     bool success = true;
     if (!dirty) {
         return;
     }
 
-    if (!prefs.begin(ns, false)) {
-        return;
-    }
-
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < members.size(); i++) {
         /*if (prefs.putBytes(
             member_keys[i],
             members[i]->data(),
@@ -117,23 +142,27 @@ void PrefsBackedStruct<capacity>::flush() {
         ) != members[i]->size()) {
             success = false;
         }*/
-        if (!members[i]->flush(member_keys[i])) {
+        if (!members[i]->flush()) {
             success = false;
         }
     }
-    prefs.end();
 
     if (success) {
         dirty = false;
     }
 }
 
-template<size_t capacity>
-PrefsBackedStruct<capacity>::PrefsBackedStruct(const char* ns)
+inline PrefsBackedStruct::PrefsBackedStruct(const char* ns)
     : ns(ns)
 {
-    get_prefs().begin(ns, false);
-    get_prefs().end();
+    ets_printf("PrefsBackedStruct ctor: %s\n", ns);
+    ensure_nvs_initialized();
+    prefs_handler.begin(ns, false);
+}
+
+inline PrefsBackedStruct::~PrefsBackedStruct()
+{
+    prefs_handler.end();
 }
 
 /*
